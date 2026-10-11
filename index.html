@@ -82,6 +82,29 @@
         color: var(--text);
         cursor: pointer;
       }
+      .cell {
+        display: flex;
+        align-items: center;
+      }
+      a.speak {
+        margin-left: 8px;
+        text-decoration: none;
+        font-weight: 400;
+      }
+      button.help {
+        padding: 4px 10px;
+        border-radius: 50%;
+        font-weight: 700;
+        color: var(--accent);
+      }
+      select {
+        font: inherit;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--text);
+      }
       button.primary {
         background: var(--accent);
         border-color: var(--accent);
@@ -169,14 +192,14 @@
   <body>
     <main>
       <h1>Irregular Verbs</h1>
-      <p class="sub">
-        Fill in the simple past, the past participle and the Italian
-        translation. Press Enter or Tab to check a cell.
-      </p>
+      <p class="sub" id="sub"></p>
 
       <div class="bar">
+        <select id="mode" aria-label="Mode">
+          <option value="1">Mode 1: base form given</option>
+          <option value="2">Mode 2: random column given</option>
+        </select>
         <button class="primary" id="restart">New random order</button>
-        <button id="reveal">Show answers</button>
         <span class="score" id="score"></span>
       </div>
 
@@ -189,6 +212,7 @@
               <th>Simple past</th>
               <th>Past participle</th>
               <th>Italiano</th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="rows"></tbody>
@@ -295,7 +319,7 @@
           base: "make",
           past: ["made"],
           pp: ["made"],
-          it: ["fare (concretamente)"],
+          it: ["fare"],
         },
         {
           base: "meet",
@@ -306,8 +330,10 @@
       ];
       // -------------------------------------------------------------------
 
-      const FIELDS = ["past", "pp", "it"];
+      const COLS = ["base", "past", "pp", "it"];
       const rowsEl = document.getElementById("rows");
+      const modeEl = document.getElementById("mode");
+      const subEl = document.getElementById("sub");
       const scoreEl = document.getElementById("score");
 
       const norm = (s) => s.trim().toLowerCase().replace(/\s+/g, " ");
@@ -360,27 +386,104 @@
           (done ? ` · ${done} checked` : "");
       }
 
+      // one pronunciation link per accepted English form (Google Translate)
+      function speakLinks(verb, field) {
+        return answers(verb, field).map((w) => {
+          const a = document.createElement("a");
+          a.className = "speak";
+          a.href = `https://translate.google.com/?sl=en&tl=it&op=translate&text=${encodeURIComponent(w)}`;
+          a.target = "_blank";
+          a.rel = "noopener";
+          a.textContent = "\u{1F50A}";
+          a.title = `Listen to "${w}" (Google Translate)`;
+          a.setAttribute("aria-label", a.title);
+          return a;
+        });
+      }
+
+      // show the speaker(s) next to an input only once its answer is known
+      function setSpeak(input, show) {
+        const cell = input.parentElement;
+        cell.querySelectorAll("a.speak").forEach((a) => a.remove());
+        if (!show || input.dataset.field === "it") return;
+        speakLinks(VERBS[+input.dataset.idx], input.dataset.field).forEach(
+          (a) => cell.appendChild(a),
+        );
+      }
+
       function check(input) {
         input.classList.remove("ok", "near", "bad");
+        setSpeak(input, false);
         if (!input.value.trim()) {
           updateScore();
           return;
         }
         const verb = VERBS[+input.dataset.idx];
-        input.classList.add(
-          grade(input.value, verb[input.dataset.field], input.dataset.field),
+        const result = grade(
+          input.value,
+          answers(verb, input.dataset.field),
+          input.dataset.field,
         );
+        input.classList.add(result);
+        setSpeak(input, result === "ok");
         updateScore();
+      }
+
+      const answers = (verb, field) =>
+        field === "base" ? [verb.base] : verb[field];
+
+      // true if no other verb accepts `value` in this column, so a given
+      // value identifies the verb unambiguously (e.g. "dire" is not unique)
+      function isUnique(idx, field, value) {
+        return VERBS.every(
+          (v, j) =>
+            j === idx ||
+            !answers(v, field).some((a) => norm(a) === norm(value)),
+        );
+      }
+
+      // mode 2: pick which column is given for a verb -> { field, text }
+      function pickGiven(idx) {
+        const verb = VERBS[idx];
+        const options = [{ field: "base", text: verb.base }];
+        ["past", "pp"].forEach((f) => {
+          if (verb[f].every((a) => isUnique(idx, f, a)))
+            options.push({ field: f, text: verb[f].join(" / ") });
+        });
+        const its = verb.it.filter((a) => isUnique(idx, "it", a));
+        if (its.length)
+          options.push({
+            field: "it",
+            text: its[Math.floor(Math.random() * its.length)],
+          });
+        return options[Math.floor(Math.random() * options.length)];
       }
 
       function render() {
         rowsEl.innerHTML = "";
+        const mode = modeEl.value;
+        subEl.textContent =
+          mode === "1"
+            ? "Fill in the simple past, the past participle and the Italian translation. Press Enter or Tab to check a cell."
+            : "One column per row is given - fill in the other three. Press Enter or Tab to check a cell.";
         const order = shuffle(VERBS.map((_, i) => i));
         order.forEach((idx, n) => {
           const tr = document.createElement("tr");
-          tr.innerHTML = `<td class="n">${n + 1}</td><td class="base">${VERBS[idx].base}</td>`;
-          FIELDS.forEach((f) => {
+          const given =
+            mode === "1"
+              ? { field: "base", text: VERBS[idx].base }
+              : pickGiven(idx);
+          tr.innerHTML = `<td class="n">${n + 1}</td>`;
+          COLS.forEach((f) => {
             const td = document.createElement("td");
+            if (f === given.field) {
+              td.className = "base";
+              td.textContent = given.text;
+              if (f !== "it")
+                speakLinks(VERBS[idx], f).forEach((a) => td.appendChild(a));
+              tr.appendChild(td);
+              return;
+            }
             const inp = document.createElement("input");
             inp.type = "text";
             inp.dataset.idx = idx;
@@ -390,9 +493,10 @@
             inp.spellcheck = false;
             inp.setAttribute("aria-label", `${VERBS[idx].base} ${f}`);
             inp.addEventListener("change", () => check(inp));
-            inp.addEventListener("input", () =>
-              inp.classList.remove("ok", "near", "bad"),
-            );
+            inp.addEventListener("input", () => {
+              inp.classList.remove("ok", "near", "bad");
+              setSpeak(inp, false);
+            });
             inp.addEventListener("keydown", (e) => {
               if (e.key === "Enter") {
                 check(inp);
@@ -401,9 +505,22 @@
                 if (nxt) nxt.focus();
               }
             });
-            td.appendChild(inp);
+            const cell = document.createElement("div");
+            cell.className = "cell";
+            cell.appendChild(inp);
+            td.appendChild(cell);
             tr.appendChild(td);
           });
+          const help = document.createElement("td");
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "help";
+          btn.textContent = "?";
+          btn.title = "Show the answers for this row";
+          btn.setAttribute("aria-label", `Show answers for ${VERBS[idx].base}`);
+          btn.addEventListener("click", () => revealRow(tr));
+          help.appendChild(btn);
+          tr.appendChild(help);
           rowsEl.appendChild(tr);
         });
         updateScore();
@@ -411,17 +528,19 @@
       }
 
       document.getElementById("restart").addEventListener("click", render);
-      document.getElementById("reveal").addEventListener("click", () => {
-        rowsEl.querySelectorAll("input").forEach((inp) => {
+      modeEl.addEventListener("change", render);
+      function revealRow(tr) {
+        tr.querySelectorAll("input").forEach((inp) => {
           if (!inp.classList.contains("ok")) {
-            const v = VERBS[+inp.dataset.idx][inp.dataset.field];
+            const v = answers(VERBS[+inp.dataset.idx], inp.dataset.field);
             inp.value = v.join(" / ");
             inp.classList.remove("ok", "near");
             inp.classList.add("bad");
+            setSpeak(inp, true);
           }
         });
         updateScore();
-      });
+      }
 
       render();
     </script>
