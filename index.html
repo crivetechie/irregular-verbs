@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Irregular Verbs Quiz</title>
+    <style>
+      :root {
+        --bg: #f6f7fb;
+        --card: #fff;
+        --text: #1f2430;
+        --muted: #6b7280;
+        --border: #d5d9e3;
+        --ok: #c8f0cf;
+        --ok-b: #3fa75a;
+        --bad: #f8cfcf;
+        --bad-b: #d64545;
+        --near: #fff3b8;
+        --near-b: #d6a800;
+        --accent: #3b5bdb;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #14161c;
+          --card: #1d2029;
+          --text: #e8eaf0;
+          --muted: #9aa1b2;
+          --border: #353a48;
+          --ok: #1f4a2a;
+          --ok-b: #3fa75a;
+          --bad: #5a2323;
+          --bad-b: #d64545;
+          --near: #594a10;
+          --near-b: #d6a800;
+          --accent: #7c93ff;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 24px 16px;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          16px/1.4 system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+      }
+      main {
+        max-width: 820px;
+        margin: 0 auto;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 1.5rem;
+      }
+      p.sub {
+        margin: 0 0 16px;
+        color: var(--muted);
+      }
+      .bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .score {
+        margin-left: auto;
+        font-weight: 600;
+      }
+      button {
+        font: inherit;
+        padding: 8px 14px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--text);
+        cursor: pointer;
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      button:hover {
+        filter: brightness(0.96);
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 560px;
+      }
+      th,
+      td {
+        padding: 6px 8px;
+        text-align: left;
+      }
+      th {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        border-bottom: 1px solid var(--border);
+        padding: 10px 8px;
+      }
+      td.base {
+        font-weight: 600;
+        padding-left: 14px;
+        white-space: nowrap;
+      }
+      td.n {
+        color: var(--muted);
+        width: 2rem;
+        text-align: right;
+      }
+      input {
+        width: 100%;
+        font: inherit;
+        padding: 7px 9px;
+        border-radius: 6px;
+        color: var(--text);
+        border: 2px solid var(--border);
+        background: transparent;
+        outline: none;
+      }
+      input:focus {
+        border-color: var(--accent);
+      }
+      input.ok {
+        background: var(--ok);
+        border-color: var(--ok-b);
+      }
+      input.bad {
+        background: var(--bad);
+        border-color: var(--bad-b);
+      }
+      input.near {
+        background: var(--near);
+        border-color: var(--near-b);
+      }
+      .legend {
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 0.85rem;
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+      .dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Irregular Verbs</h1>
+      <p class="sub">
+        Fill in the simple past, the past participle and the Italian
+        translation. Press Enter or Tab to check a cell.
+      </p>
+
+      <div class="bar">
+        <button class="primary" id="restart">New random order</button>
+        <button id="reveal">Show answers</button>
+        <span class="score" id="score"></span>
+      </div>
+
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>Base form</th>
+              <th>Simple past</th>
+              <th>Past participle</th>
+              <th>Italiano</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+
+      <div class="legend">
+        <span
+          ><span class="dot" style="background: var(--ok-b)"></span
+          >correct</span
+        >
+        <span
+          ><span class="dot" style="background: var(--near-b)"></span>almost
+          (small typo)</span
+        >
+        <span
+          ><span class="dot" style="background: var(--bad-b)"></span>wrong</span
+        >
+      </div>
+    </main>
+
+    <script>
+      // ---- CONFIG: each answer field is an array of accepted answers ----
+      const VERBS = [
+        { base: "cost", past: ["cost"], pp: ["cost"], it: ["costare"] },
+        { base: "put", past: ["put"], pp: ["put"], it: ["mettere"] },
+        {
+          base: "read",
+          past: ["read", "red"],
+          pp: ["read", "red"],
+          it: ["leggere"],
+        },
+        {
+          base: "be",
+          past: ["was", "were"],
+          pp: ["been"],
+          it: ["essere", "stare"],
+        },
+        { base: "come", past: ["came"], pp: ["come"], it: ["venire"] },
+        { base: "do", past: ["did"], pp: ["done"], it: ["fare"] },
+        { base: "drink", past: ["drank"], pp: ["drunk"], it: ["bere"] },
+        { base: "eat", past: ["ate"], pp: ["eaten"], it: ["mangiare"] },
+        { base: "give", past: ["gave"], pp: ["given"], it: ["dare"] },
+        { base: "go", past: ["went"], pp: ["gone"], it: ["andare"] },
+        {
+          base: "know",
+          past: ["knew"],
+          pp: ["known"],
+          it: ["sapere", "conoscere"],
+        },
+        { base: "run", past: ["ran"], pp: ["run"], it: ["correre"] },
+        { base: "see", past: ["saw"], pp: ["seen"], it: ["vedere"] },
+        { base: "speak", past: ["spoke"], pp: ["spoken"], it: ["parlare"] },
+        { base: "swim", past: ["swam"], pp: ["swum"], it: ["nuotare"] },
+        {
+          base: "wake up",
+          past: ["woke up"],
+          pp: ["woken up"],
+          it: ["svegliarsi"],
+        },
+        {
+          base: "wear",
+          past: ["wore"],
+          pp: ["worn"],
+          it: ["indossare", "portare"],
+        },
+        { base: "write", past: ["wrote"], pp: ["written"], it: ["scrivere"] },
+        { base: "say", past: ["said"], pp: ["said"], it: ["dire"] },
+        { base: "sleep", past: ["slept"], pp: ["slept"], it: ["dormire"] },
+        {
+          base: "spend",
+          past: ["spent"],
+          pp: ["spent"],
+          it: ["spendere"],
+        },
+        {
+          base: "tell",
+          past: ["told"],
+          pp: ["told"],
+          it: ["raccontare"],
+        },
+        { base: "think", past: ["thought"], pp: ["thought"], it: ["pensare"] },
+        {
+          base: "understand",
+          past: ["understood"],
+          pp: ["understood"],
+          it: ["capire"],
+        },
+        {
+          base: "buy",
+          past: ["bought"],
+          pp: ["bought"],
+          it: ["comprare"],
+        },
+        {
+          base: "feel",
+          past: ["felt"],
+          pp: ["felt"],
+          it: ["sentirsi emotivamente"],
+        },
+        { base: "find", past: ["found"], pp: ["found"], it: ["trovare"] },
+        { base: "have", past: ["had"], pp: ["had"], it: ["avere"] },
+        {
+          base: "make",
+          past: ["made"],
+          pp: ["made"],
+          it: ["fare (concretamente)"],
+        },
+        {
+          base: "meet",
+          past: ["met"],
+          pp: ["met"],
+          it: ["incontrare", "conoscere"],
+        },
+      ];
+      // -------------------------------------------------------------------
+
+      const FIELDS = ["past", "pp", "it"];
+      const rowsEl = document.getElementById("rows");
+      const scoreEl = document.getElementById("score");
+
+      const norm = (s) => s.trim().toLowerCase().replace(/\s+/g, " ");
+      const stripAccents = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+      function distance(a, b) {
+        const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+        for (let j = 1; j <= b.length; j++) d[0][j] = j;
+        for (let i = 1; i <= a.length; i++)
+          for (let j = 1; j <= b.length; j++)
+            d[i][j] = Math.min(
+              d[i - 1][j] + 1,
+              d[i][j - 1] + 1,
+              d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+            );
+        return d[a.length][b.length];
+      }
+
+      // returns "ok" | "near" | "bad"
+      function grade(value, accepted, field) {
+        let v = norm(value);
+        if (field === "it") v = v.replace(/^to\s+/, "");
+        if (accepted.some((a) => norm(a) === v)) return "ok";
+        const sv = stripAccents(v);
+        let best = Infinity;
+        for (const a of accepted) {
+          const sa = stripAccents(norm(a));
+          best = Math.min(best, distance(sv, sa));
+        }
+        return best <= 1 && sv.length >= 3 ? "near" : "bad";
+      }
+
+      function shuffle(arr) {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      }
+
+      function updateScore() {
+        const inputs = rowsEl.querySelectorAll("input");
+        const ok = rowsEl.querySelectorAll("input.ok").length;
+        const done = rowsEl.querySelectorAll(
+          "input.ok, input.near, input.bad",
+        ).length;
+        scoreEl.textContent =
+          `${ok} / ${inputs.length} correct` +
+          (done ? ` · ${done} checked` : "");
+      }
+
+      function check(input) {
+        input.classList.remove("ok", "near", "bad");
+        if (!input.value.trim()) {
+          updateScore();
+          return;
+        }
+        const verb = VERBS[+input.dataset.idx];
+        input.classList.add(
+          grade(input.value, verb[input.dataset.field], input.dataset.field),
+        );
+        updateScore();
+      }
+
+      function render() {
+        rowsEl.innerHTML = "";
+        const order = shuffle(VERBS.map((_, i) => i));
+        order.forEach((idx, n) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td class="n">${n + 1}</td><td class="base">${VERBS[idx].base}</td>`;
+          FIELDS.forEach((f) => {
+            const td = document.createElement("td");
+            const inp = document.createElement("input");
+            inp.type = "text";
+            inp.dataset.idx = idx;
+            inp.dataset.field = f;
+            inp.autocomplete = "off";
+            inp.autocapitalize = "off";
+            inp.spellcheck = false;
+            inp.setAttribute("aria-label", `${VERBS[idx].base} ${f}`);
+            inp.addEventListener("change", () => check(inp));
+            inp.addEventListener("input", () =>
+              inp.classList.remove("ok", "near", "bad"),
+            );
+            inp.addEventListener("keydown", (e) => {
+              if (e.key === "Enter") {
+                check(inp);
+                const all = [...rowsEl.querySelectorAll("input")];
+                const nxt = all[all.indexOf(inp) + 1];
+                if (nxt) nxt.focus();
+              }
+            });
+            td.appendChild(inp);
+            tr.appendChild(td);
+          });
+          rowsEl.appendChild(tr);
+        });
+        updateScore();
+        rowsEl.querySelector("input")?.focus();
+      }
+
+      document.getElementById("restart").addEventListener("click", render);
+      document.getElementById("reveal").addEventListener("click", () => {
+        rowsEl.querySelectorAll("input").forEach((inp) => {
+          if (!inp.classList.contains("ok")) {
+            const v = VERBS[+inp.dataset.idx][inp.dataset.field];
+            inp.value = v.join(" / ");
+            inp.classList.remove("ok", "near");
+            inp.classList.add("bad");
+          }
+        });
+        updateScore();
+      });
+
+      render();
+    </script>
+  </body>
+</html>
