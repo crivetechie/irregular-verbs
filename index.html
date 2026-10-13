@@ -86,10 +86,16 @@
         display: flex;
         align-items: center;
       }
-      a.speak {
+      .speak {
         margin-left: 8px;
         text-decoration: none;
         font-weight: 400;
+      }
+      button.speak {
+        padding: 2px 6px;
+        border: none;
+        background: transparent;
+        line-height: 1;
       }
       button.help {
         padding: 4px 10px;
@@ -386,25 +392,87 @@
           (done ? ` · ${done} checked` : "");
       }
 
-      // one pronunciation link per accepted English form (Google Translate)
+      // Pronunciation uses the browser's built-in speech synthesis (no network,
+      // no new tab). If it is unavailable we fall back to a Google Translate link.
+      const canSpeak = "speechSynthesis" in window;
+
+      // the spoken text for words the synthesiser would read the wrong way
+      function spokenText(word, field) {
+        if (word === "read") return field === "base" ? "reed" : "red";
+        return word;
+      }
+
+      // The speech API does not expose a voice's gender, so female voices are
+      // recognised by name. Earlier entries are preferred.
+      const FEMALE_VOICES = [
+        "Google UK English Female",
+        "Samantha", "Karen", "Moira", "Tessa", "Serena", "Kate", "Fiona",
+        "Victoria", "Allison", "Ava", "Susan", "Zira", "Hazel", "Libby",
+        "Sonia", "Jenny", "Aria", "Female",
+      ];
+
+      function pickVoice() {
+        const english = speechSynthesis
+          .getVoices()
+          .filter((v) => v.lang.toLowerCase().startsWith("en"));
+        for (const name of FEMALE_VOICES) {
+          const matches = english.filter((v) => v.name.includes(name));
+          const best =
+            matches.find((v) => v.lang.toLowerCase().replace("_", "-") === "en-gb") ||
+            matches[0];
+          if (best) return best;
+        }
+        return null;
+      }
+
+      function speak(text) {
+        speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        const voice = pickVoice();
+        if (voice) {
+          u.voice = voice;
+          u.lang = voice.lang;
+        } else {
+          u.lang = "en-GB";
+        }
+        u.rate = 0.9;
+        speechSynthesis.speak(u);
+      }
+
+      // one pronunciation control per distinct sound: forms that are spoken
+      // the same (read / red) share a single button
       function speakLinks(verb, field) {
-        return answers(verb, field).map((w) => {
-          const a = document.createElement("a");
-          a.className = "speak";
-          a.href = `https://translate.google.com/?sl=en&tl=it&op=translate&text=${encodeURIComponent(w)}`;
-          a.target = "_blank";
-          a.rel = "noopener";
-          a.textContent = "\u{1F50A}";
-          a.title = `Listen to "${w}" (Google Translate)`;
-          a.setAttribute("aria-label", a.title);
-          return a;
+        const bySound = new Map();
+        answers(verb, field).forEach((w) => {
+          const sound = spokenText(w, field);
+          bySound.set(sound, [...(bySound.get(sound) || []), w]);
+        });
+        return [...bySound].map(([sound, words]) => {
+          const w = words[0];
+          const title = `Listen to "${words.join(" / ")}"`;
+          let el;
+          if (canSpeak) {
+            el = document.createElement("button");
+            el.type = "button";
+            el.addEventListener("click", () => speak(sound));
+          } else {
+            el = document.createElement("a");
+            el.href = `https://translate.google.com/?sl=en&tl=it&op=translate&text=${encodeURIComponent(w)}`;
+            el.target = "_blank";
+            el.rel = "noopener";
+          }
+          el.className = "speak";
+          el.textContent = "\u{1F50A}";
+          el.title = title;
+          el.setAttribute("aria-label", title);
+          return el;
         });
       }
 
       // show the speaker(s) next to an input only once its answer is known
       function setSpeak(input, show) {
         const cell = input.parentElement;
-        cell.querySelectorAll("a.speak").forEach((a) => a.remove());
+        cell.querySelectorAll(".speak").forEach((a) => a.remove());
         if (!show || input.dataset.field === "it") return;
         speakLinks(VERBS[+input.dataset.idx], input.dataset.field).forEach(
           (a) => cell.appendChild(a),
